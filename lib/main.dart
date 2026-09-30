@@ -3,23 +3,30 @@
 import 'core/voice_engine.dart';
 import 'core/audio_service.dart';
 import 'core/equalizer_service.dart';
+import 'core/lyrics_service.dart';
 
 void main() async {
   print("==================================================");
-  print("🔥 FEDO MUSIC PRO - EQUALIZER & AUDIO EFFECTS TEST");
+  print("🔥 FEDO MUSIC PRO - REAL-TIME LYRICS MODULE TEST");
   print("==================================================");
 
-  var equalizer = EqualizerService();
+  var lyricsService = LyricsService();
 
-  // 1. Equalizer Preset Testi
-  equalizer.setPreset("Bass Boost");
-  equalizer.setBassBoost(85.0);
+  // Test üçün LRC formatında sözlərin yüklənməsi
+  String sampleLrc = '''
+[00:00.00] Fedo Music Pro - Real-Time Karaoke
+[00:03.50] Musiqi başlayır...
+[00:10.00] Mahnının ilk sətri ekranımızda görünür
+[00:15.00] Oxunan vaxta uyğun sözlər axıcı şəkildə dəyişir
+''';
 
-  // 2. Özel Zolaq Ayarı Testi
-  equalizer.setBandLevel("14kHz", 4.5);
-  print("🎵 Cari Equalizer Rejimi: ${equalizer.currentPreset}");
+  lyricsService.loadLrcLyrics(sampleLrc);
+
+  // Simulyasiya: 11-ci saniyədə hansı sətir görünür?
+  String currentLine = lyricsService.getCurrentLyricLine(const Duration(seconds: 11));
+  print("⏱️ [00:11.00] Ekranda görünən sətir: "$currentLine"");
 
   print("==================================================");
-  print("🚀 EQUALIZER SİSTEMİ MÜVƏFFƏQİYYƏTLƏ İŞLƏYİR!");
+  print("🚀 REAL-VAXT LYRICS MODULU MÜVƏFFƏQİYYƏTLƏ İŞLƏYİR!");
   print("==================================================");
 }
