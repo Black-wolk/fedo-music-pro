@@ -1,4 +1,8 @@
+import os
 
+print("🎤 Səsli əmrlər bazası genişləndirilir...")
+
+expanded_voice_code = """
 // lib/core/voice_engine.dart
 class FedoVoiceEngine {
   bool isListening = false;
@@ -54,3 +58,9 @@ class FedoVoiceEngine {
     }
   }
 }
+"""
+
+with open("lib/core/voice_engine.dart", "w", encoding="utf-8") as f:
+    f.write(expanded_voice_code)
+
+print("✅ Səsli əmrlər modulu genişləndirildi!")
