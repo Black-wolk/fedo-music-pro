@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:just_audio/just_audio.dart';
@@ -25,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  Timer? _sleepTimer;
+  int _remainingMinutes = 0;
 
   @override
   void initState() {
@@ -126,6 +129,62 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _setSleepTimer(int minutes) {
+    _sleepTimer?.cancel();
+    setState(() {
+      _remainingMinutes = minutes;
+    });
+
+    if (minutes > 0) {
+      _sleepTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+        setState(() {
+          _remainingMinutes--;
+        });
+        if (_remainingMinutes <= 0) {
+          _audioPlayer.pause();
+          timer.cancel();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Yuxu taymeri tamamlandı, musiqi saxlanıldı.")),
+          );
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Taymer $minutes dəqiqəyə quruldu.")),
+      );
+    }
+  }
+
+  void _showTimerDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1F1C2C),
+        title: const Text("Yuxu Taymeri", style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [15, 30, 45, 60].map((mins) {
+            return ListTile(
+              title: Text("$mins Dəqiqə", style: const TextStyle(color: Colors.white70)),
+              onTap: () {
+                _setSleepTimer(mins);
+                Navigator.pop(context);
+              },
+            );
+          }).toList()
+            ..add(
+              ListTile(
+                title: const Text("Taymeri Söndür", style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  _setSleepTimer(0);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+        ),
+      ),
+    );
+  }
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -135,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _sleepTimer?.cancel();
     _audioPlayer.dispose();
     _searchController.dispose();
     super.dispose();
@@ -177,6 +237,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
           centerTitle: !_isSearching,
           actions: [
+            IconButton(
+              icon: Icon(
+                _remainingMinutes > 0 ? Icons.timer : Icons.timer_outlined,
+                color: _remainingMinutes > 0 ? Colors.cyanAccent : Colors.white,
+              ),
+              onPressed: _showTimerDialog,
+            ),
             IconButton(
               icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
               onPressed: () {
