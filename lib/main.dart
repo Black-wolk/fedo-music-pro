@@ -1,22 +1,27 @@
-
-// lib/main.dart
 import 'package:flutter/material.dart';
-import 'ui/player_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() {
-  runApp(const FedoMusicApp());
+  runApp(const FedoMusicProApp());
 }
 
-class FedoMusicApp extends StatelessWidget {
-  const FedoMusicApp({Key? key}) : super(key: key);
+class FedoMusicProApp extends StatelessWidget {
+  const FedoMusicProApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Fedo Music Pro',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
-      home: const FedoPlayerScreen(),
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        primaryColor: Colors.deepPurple,
+        colorScheme: const ColorScheme.dark(
+          primary: Colors.deepPurple,
+          secondary: Colors.deepPurpleAccent,
+        ),
+      ),
+      home: const HomeScreen(),
     );
   }
 }
