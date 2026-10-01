@@ -18,15 +18,36 @@ class _HomeScreenState extends State<HomeScreen> {
   List<SongModel> _filteredSongs = [];
   final Set<int> _favoriteSongIds = {};
 
-  SongModel? _currentSong;
+  int _currentIndex = -1;
   bool _isPlaying = false;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _requestPermission();
+
+    // Player dinləyiciləri (vaxt və dinamik yenilənmə üçün)
+    _audioPlayer.positionStream.listen((p) {
+      setState(() => _position = p);
+    });
+
+    _audioPlayer.durationStream.listen((d) {
+      setState(() => _duration = d ?? Duration.zero);
+    });
+
+    _audioPlayer.playerStateStream.listen((state) {
+      setState(() {
+        _isPlaying = state.playing;
+      });
+      if (state.processingState == ProcessingState.completed) {
+        _playNext();
+      }
+    });
   }
 
   void _requestPermission() async {
@@ -63,18 +84,28 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _playSong(SongModel song) async {
+  void _playSongAtIndex(int index) async {
+    if (index < 0 || index >= _filteredSongs.length) return;
     try {
-      await _audioPlayer.setFilePath(song.data);
+      _currentIndex = index;
+      await _audioPlayer.setFilePath(_filteredSongs[index].data);
       _audioPlayer.play();
-      setState(() {
-        _currentSong = song;
-        _isPlaying = true;
-      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Fayl oxunarkən xəta: $e")),
       );
+    }
+  }
+
+  void _playNext() {
+    if (_currentIndex < _filteredSongs.length - 1) {
+      _playSongAtIndex(_currentIndex + 1);
+    }
+  }
+
+  void _playPrevious() {
+    if (_currentIndex > 0) {
+      _playSongAtIndex(_currentIndex - 1);
     }
   }
 
@@ -84,9 +115,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       _audioPlayer.play();
     }
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
   }
 
   void _toggleFavorite(int songId) {
@@ -99,6 +127,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$minutes:$seconds";
+  }
+
   @override
   void dispose() {
     _audioPlayer.dispose();
@@ -108,6 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SongModel? currentSong = _currentIndex != -1 && _currentIndex < _filteredSongs.length
+        ? _filteredSongs[_currentIndex]
+        : null;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E1E1E),
@@ -123,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onChanged: _filterSongs,
               )
-            : const Text('Fedo Music Pro (Offline)'),
+            : const Text('Fedo Music Pro'),
         centerTitle: !_isSearching,
         actions: [
           IconButton(
@@ -152,6 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
               itemBuilder: (context, index) {
                 SongModel song = _filteredSongs[index];
                 bool isFav = _favoriteSongIds.contains(song.id);
+                bool isCurrent = _currentIndex == index;
 
                 return ListTile(
                   leading: QueryArtworkWidget(
@@ -161,17 +201,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.shade800,
+                        color: isCurrent ? Colors.deepPurpleAccent : Colors.deepPurple.shade800,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.music_note, color: Colors.white),
+                      child: Icon(
+                        isCurrent ? Icons.music_note : Icons.audiotrack,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   title: Text(
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(
+                      color: isCurrent ? Colors.deepPurpleAccent : Colors.white,
+                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    ),
                   ),
                   subtitle: Text(
                     song.artist ?? "Bilinməyən İfaçı",
@@ -190,17 +236,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       IconButton(
                         icon: Icon(
-                          _currentSong?.id == song.id && _isPlaying
+                          isCurrent && _isPlaying
                               ? Icons.pause_circle_filled
                               : Icons.play_circle_fill,
                           color: Colors.deepPurpleAccent,
                           size: 32,
                         ),
                         onPressed: () {
-                          if (_currentSong?.id == song.id) {
+                          if (isCurrent) {
                             _togglePlayPause();
                           } else {
-                            _playSong(song);
+                            _playSongAtIndex(index);
                           }
                         },
                       ),
@@ -209,40 +255,74 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-      bottomNavigationBar: _currentSong != null
+      bottomNavigationBar: currentSong != null
           ? Container(
-              height: 75,
+              height: 110,
               color: const Color(0xFF1E1E1E),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Progress Bar Slider
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      activeColor: Colors.deepPurpleAccent,
+                      inactiveColor: Colors.grey.shade800,
+                      value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
+                      max: _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0,
+                      onChanged: (value) {
+                        _audioPlayer.seek(Duration(seconds: value.toInt()));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _currentSong!.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _currentSong!.artist ?? "Bilinməyən İfaçı",
-                          maxLines: 1,
-                          style: const TextStyle(color: Colors.grey),
-                        ),
+                        Text(_formatDuration(_position), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                        Text(_formatDuration(_duration), style: const TextStyle(color: Colors.grey, fontSize: 10)),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      _isPlaying ? Icons.pause : Icons.play_arrow,
-                      size: 36,
-                      color: Colors.white,
-                    ),
-                    onPressed: _togglePlayPause,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              currentSong.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            Text(
+                              currentSong.artist ?? "Bilinməyən İfaçı",
+                              maxLines: 1,
+                              style: const TextStyle(color: Colors.grey, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous, color: Colors.white, size: 28),
+                        onPressed: _playPrevious,
+                      ),
+                      IconButton(
+                        icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 32),
+                        onPressed: _togglePlayPause,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_next, color: Colors.white, size: 28),
+                        onPressed: _playNext,
+                      ),
+                    ],
                   ),
                 ],
               ),
