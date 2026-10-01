@@ -1,8 +1,9 @@
-
-// lib/ui/player_screen.dart
-// Fedo Music Pro - Əsas İdarəetmə və Pleyer Ekranı
-
 import 'package:flutter/material.dart';
+import 'package:on_audio_query/on_audio_query.dart';
+import 'package:fedo_music_pro/services/audio_service.dart';
+import 'package:fedo_music_pro/services/audio_query_service.dart';
+import 'package:fedo_music_pro/services/equalizer_service.dart';
+import 'package:fedo_music_pro/services/lyrics_service.dart';
 
 class FedoPlayerScreen extends StatefulWidget {
   const FedoPlayerScreen({Key? key}) : super(key: key);
@@ -12,134 +13,109 @@ class FedoPlayerScreen extends StatefulWidget {
 }
 
 class _FedoPlayerScreenState extends State<FedoPlayerScreen> {
-  bool isPlaying = false;
-  double songProgress = 0.3;
+  final AudioEngineService _audioEngine = AudioEngineService();
+  final LocalAudioQueryService _audioQueryService = LocalAudioQueryService();
+  late EqualizerService _equalizerService;
+  final LyricsService _lyricsService = LyricsService();
+
+  List<SongModel> _songs = [];
+  bool _isLoading = true;
+  SongModel? _currentSong;
+  String _currentLyrics = "Mahnı seçilməyib";
+
+  @override
+  void initState() {
+    super.initState();
+    _equalizerService = EqualizerService(_audioEngine.player);
+    _loadSongs();
+  }
+
+  Future<void> _loadSongs() async {
+    List<SongModel> songs = await _audioQueryService.fetchLocalSongs();
+    setState(() {
+      _songs = songs;
+      _isLoading = false;
+    });
+  }
+
+  void _playSong(SongModel song) async {
+    setState(() {
+      _currentSong = song;
+      _currentLyrics = "Mahnı sözləri axtarılır...";
+    });
+    if (song.data.isNotEmpty) {
+      await _audioEngine.playAudio(song.data);
+      String lyrics = await _lyricsService.fetchLyrics(song.title);
+      setState(() {
+        _currentLyrics = lyrics;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioEngine.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text("FEDO MUSIC PRO", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        title: Text(_currentSong != null ? _currentSong!.title : 'Fedo Music Pro'),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.equalizer, color: Colors.cyanAccent),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("🎛️ Equalizer Pəncərəsi")),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.directions_car, color: Colors.amber),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("🚗 Avtomobil Rejimi Aktiv Edildi")),
-              );
-            },
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Album Art Placeholder / Cover Image
-            Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: const LinearGradient(
-                  colors: [Colors.purpleAccent, Colors.blueAccent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.cyanAccent.withOpacity(0.3),
-                    blurRadius: 25,
-                    spreadRadius: 2,
-                  )
-                ],
-              ),
-              child: const Icon(Icons.music_note, size: 100, color: Colors.white),
-            ),
-            const SizedBox(height: 32),
-
-            // Track Info
-            const Text(
-              "Xəzri Meyxana / Mahnı 01",
-              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Fedo Cloud Vault • Offlayn",
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-
-            // Progress Slider
-            Slider(
-              value: songProgress,
-              activeColor: Colors.cyanAccent,
-              inactiveColor: Colors.grey.shade800,
-              onChanged: (value) {
-                setState(() {
-                  songProgress = value;
-                });
-              },
-            ),
-
-            // Control Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+          : Column(
               children: [
-                IconButton(
-                  iconSize: 36,
-                  icon: const Icon(Icons.skip_previous, color: Colors.white),
-                  onPressed: () {},
+                Expanded(
+                  child: _songs.isEmpty
+                      ? const Center(child: Text("Musiqi faylı tapılmadı", style: TextStyle(color: Colors.white)))
+                      : ListView.builder(
+                          itemCount: _songs.length,
+                          itemBuilder: (context, index) {
+                            final song = _songs[index];
+                            return ListTile(
+                              leading: QueryArtworkWidget(
+                                id: song.id,
+                                type: ArtworkType.AUDIO,
+                                nullArtworkWidget: const Icon(Icons.music_note, color: Colors.deepPurple, size: 35),
+                              ),
+                              title: Text(
+                                song.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                song.artist ?? "Bilinməyən İfaçı",
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              onTap: () => _playSong(song),
+                            );
+                          },
+                        ),
                 ),
-                FloatingActionButton(
-                  backgroundColor: Colors.cyanAccent,
-                  child: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.black,
-                    size: 32,
+                if (_currentSong != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.deepPurple.withOpacity(0.2),
+                    child: Column(
+                      children: [
+                        Text(
+                          _currentLyrics,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isPlaying = !isPlaying;
-                    });
-                  },
-                ),
-                IconButton(
-                  iconSize: 36,
-                  icon: const Icon(Icons.skip_next, color: Colors.white),
-                  onPressed: () {},
-                ),
               ],
             ),
-            const SizedBox(height: 20),
-
-            // Voice Engine Status Indicator
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.withOpacity(0.3),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-              icon: const Icon(Icons.mic, color: Colors.cyanAccent),
-              label: const Text("🎙️ 'Fedo' deyərək əmr verin", style: TextStyle(color: Colors.white)),
-              onPressed: () {},
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
