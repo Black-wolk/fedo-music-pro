@@ -23,7 +23,7 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Upgrade Dependencies & Get Packages
+    - name: Get Dependencies
       run: |
         flutter pub upgrade --major-versions
         flutter pub get
