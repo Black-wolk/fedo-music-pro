@@ -1,5 +1,5 @@
 name: fedo_music_pro
-description: "Offline Music Player"
+description: "Fedo Music Pro - Offline Music Player"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   on_audio_query: ^2.9.0
   just_audio: ^0.9.36
-  permission_handler: ^11.3.1
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:
