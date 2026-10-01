@@ -14,8 +14,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final OnAudioQuery _audioQuery = OnAudioQuery();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  List<SongModel> _allSongs = [];
+  List<SongModel> _filteredSongs = [];
+  final Set<int> _favoriteSongIds = {};
+
   SongModel? _currentSong;
   bool _isPlaying = false;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -26,7 +32,35 @@ class _HomeScreenState extends State<HomeScreen> {
   void _requestPermission() async {
     await Permission.storage.request();
     await Permission.audio.request();
-    setState(() {});
+    _loadSongs();
+  }
+
+  void _loadSongs() async {
+    List<SongModel> songs = await _audioQuery.querySongs(
+      sortType: null,
+      orderType: OrderType.ASC_OR_SMALLER,
+      uriType: UriType.EXTERNAL,
+      ignoreCase: true,
+    );
+    setState(() {
+      _allSongs = songs;
+      _filteredSongs = songs;
+    });
+  }
+
+  void _filterSongs(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredSongs = _allSongs;
+      } else {
+        _filteredSongs = _allSongs.where((song) {
+          final title = song.title.toLowerCase();
+          final artist = (song.artist ?? "").toLowerCase();
+          final search = query.toLowerCase();
+          return title.contains(search) || artist.contains(search);
+        }).toList();
+      }
+    });
   }
 
   void _playSong(SongModel song) async {
@@ -39,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Fayl oxunarkən xəta yarandı: $e")),
+        SnackBar(content: Text("Fayl oxunarkən xəta: $e")),
       );
     }
   }
@@ -55,9 +89,20 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _toggleFavorite(int songId) {
+    setState(() {
+      if (_favoriteSongIds.contains(songId)) {
+        _favoriteSongIds.remove(songId);
+      } else {
+        _favoriteSongIds.add(songId);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -65,79 +110,105 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fedo Music Pro (Offline)'),
         backgroundColor: const Color(0xFF1E1E1E),
-        centerTitle: true,
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Mahnı və ya ifaçı axtar...',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  border: InputBorder.none,
+                ),
+                onChanged: _filterSongs,
+              )
+            : const Text('Fedo Music Pro (Offline)'),
+        centerTitle: !_isSearching,
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _filteredSongs = _allSongs;
+                }
+              });
+            },
+          ),
+        ],
       ),
-      body: FutureBuilder<List<SongModel>>(
-        future: _audioQuery.querySongs(
-          sortType: null,
-          orderType: OrderType.ASC_OR_SMALLER,
-          uriType: UriType.EXTERNAL,
-          ignoreCase: true,
-        ),
-        builder: (context, item) {
-          if (item.data == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (item.data!.isEmpty) {
-            return const Center(
+      body: _filteredSongs.isEmpty
+          ? const Center(
               child: Text(
-                'Yaddaşda heç bir musiqi faylı tapılmadı.',
+                'Mahnı tapılmadı.',
                 style: TextStyle(color: Colors.white70),
               ),
-            );
-          }
-          return ListView.builder(
-            itemCount: item.data!.length,
-            itemBuilder: (context, index) {
-              SongModel song = item.data![index];
-              return ListTile(
-                leading: QueryArtworkWidget(
-                  id: song.id,
-                  type: ArtworkType.AUDIO,
-                  nullArtworkWidget: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.shade800,
-                      borderRadius: BorderRadius.circular(8),
+            )
+          : ListView.builder(
+              itemCount: _filteredSongs.length,
+              itemBuilder: (context, index) {
+                SongModel song = _filteredSongs[index];
+                bool isFav = _favoriteSongIds.contains(song.id);
+
+                return ListTile(
+                  leading: QueryArtworkWidget(
+                    id: song.id,
+                    type: ArtworkType.AUDIO,
+                    nullArtworkWidget: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.shade800,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.music_note, color: Colors.white),
                     ),
-                    child: const Icon(Icons.music_note, color: Colors.white),
                   ),
-                ),
-                title: Text(
-                  song.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                subtitle: Text(
-                  song.artist ?? "Bilinməyən İfaçı",
-                  maxLines: 1,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                trailing: IconButton(
-                  icon: Icon(
-                    _currentSong?.id == song.id && _isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: Colors.deepPurpleAccent,
-                    size: 32,
+                  title: Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white),
                   ),
-                  onPressed: () {
-                    if (_currentSong?.id == song.id) {
-                      _togglePlayPause();
-                    } else {
-                      _playSong(song);
-                    }
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  subtitle: Text(
+                    song.artist ?? "Bilinməyən İfaçı",
+                    maxLines: 1,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: isFav ? Colors.red : Colors.grey,
+                        ),
+                        onPressed: () => _toggleFavorite(song.id),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _currentSong?.id == song.id && _isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_fill,
+                          color: Colors.deepPurpleAccent,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          if (_currentSong?.id == song.id) {
+                            _togglePlayPause();
+                          } else {
+                            _playSong(song);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
       bottomNavigationBar: _currentSong != null
           ? Container(
               height: 75,
