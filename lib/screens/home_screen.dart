@@ -31,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _requestPermission();
 
-    // Player dinləyiciləri (vaxt və dinamik yenilənmə üçün)
     _audioPlayer.positionStream.listen((p) {
       setState(() => _position = p);
     });
@@ -147,187 +146,227 @@ class _HomeScreenState extends State<HomeScreen> {
         ? _filteredSongs[_currentIndex]
         : null;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Mahnı və ya ifaçı axtar...',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
-                ),
-                onChanged: _filterSongs,
-              )
-            : const Text('Fedo Music Pro'),
-        centerTitle: !_isSearching,
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) {
-                  _searchController.clear();
-                  _filteredSongs = _allSongs;
-                }
-              });
-            },
-          ),
-        ],
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1F1C2C), Color(0xFF928DAB)],
+        ),
       ),
-      body: _filteredSongs.isEmpty
-          ? const Center(
-              child: Text(
-                'Mahnı tapılmadı.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          : ListView.builder(
-              itemCount: _filteredSongs.length,
-              itemBuilder: (context, index) {
-                SongModel song = _filteredSongs[index];
-                bool isFav = _favoriteSongIds.contains(song.id);
-                bool isCurrent = _currentIndex == index;
-
-                return ListTile(
-                  leading: QueryArtworkWidget(
-                    id: song.id,
-                    type: ArtworkType.AUDIO,
-                    nullArtworkWidget: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: isCurrent ? Colors.deepPurpleAccent : Colors.deepPurple.shade800,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        isCurrent ? Icons.music_note : Icons.audiotrack,
-                        color: Colors.white,
-                      ),
-                    ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          title: _isSearching
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Mahnı və ya ifaçı axtar...',
+                    hintStyle: TextStyle(color: Colors.white60),
+                    border: InputBorder.none,
                   ),
-                  title: Text(
-                    song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isCurrent ? Colors.deepPurpleAccent : Colors.white,
-                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  subtitle: Text(
-                    song.artist ?? "Bilinməyən İfaçı",
-                    maxLines: 1,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : Colors.grey,
-                        ),
-                        onPressed: () => _toggleFavorite(song.id),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          isCurrent && _isPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_fill,
-                          color: Colors.deepPurpleAccent,
-                          size: 32,
-                        ),
-                        onPressed: () {
-                          if (isCurrent) {
-                            _togglePlayPause();
-                          } else {
-                            _playSongAtIndex(index);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                );
+                  onChanged: _filterSongs,
+                )
+              : const Text(
+                  'Fedo Music Pro',
+                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                ),
+          centerTitle: !_isSearching,
+          actions: [
+            IconButton(
+              icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
+              onPressed: () {
+                setState(() {
+                  _isSearching = !_isSearching;
+                  if (!_isSearching) {
+                    _searchController.clear();
+                    _filteredSongs = _allSongs;
+                  }
+                });
               },
             ),
-      bottomNavigationBar: currentSong != null
-          ? Container(
-              height: 110,
-              color: const Color(0xFF1E1E1E),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                children: [
-                  // Progress Bar Slider
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                      trackHeight: 3,
+          ],
+        ),
+        body: _filteredSongs.isEmpty
+            ? const Center(
+                child: Text(
+                  'Mahnı tapılmadı.',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                itemCount: _filteredSongs.length,
+                itemBuilder: (context, index) {
+                  SongModel song = _filteredSongs[index];
+                  bool isFav = _favoriteSongIds.contains(song.id);
+                  bool isCurrent = _currentIndex == index;
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(15),
                     ),
-                    child: Slider(
-                      activeColor: Colors.deepPurpleAccent,
-                      inactiveColor: Colors.grey.shade800,
-                      value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
-                      max: _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0,
-                      onChanged: (value) {
-                        _audioPlayer.seek(Duration(seconds: value.toInt()));
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_formatDuration(_position), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                        Text(_formatDuration(_duration), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              currentSong.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: QueryArtworkWidget(
+                        id: song.id,
+                        type: ArtworkType.AUDIO,
+                        nullArtworkWidget: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.deepPurple, Colors.purpleAccent],
                             ),
-                            Text(
-                              currentSong.artist ?? "Bilinməyən İfaçı",
-                              maxLines: 1,
-                              style: const TextStyle(color: Colors.grey, fontSize: 11),
-                            ),
-                          ],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            isCurrent ? Icons.equalizer : Icons.music_note,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_previous, color: Colors.white, size: 28),
-                        onPressed: _playPrevious,
+                      title: Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                        ),
                       ),
-                      IconButton(
-                        icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 32),
-                        onPressed: _togglePlayPause,
+                      subtitle: Text(
+                        song.artist ?? "Bilinməyən İfaçı",
+                        maxLines: 1,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_next, color: Colors.white, size: 28),
-                        onPressed: _playNext,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? Colors.redAccent : Colors.white60,
+                            ),
+                            onPressed: () => _toggleFavorite(song.id),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              isCurrent && _isPlaying
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_fill,
+                              color: Colors.cyanAccent,
+                              size: 34,
+                            ),
+                            onPressed: () {
+                              if (isCurrent) {
+                                _togglePlayPause();
+                              } else {
+                                _playSongAtIndex(index);
+                              }
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  );
+                },
               ),
-            )
-          : null,
+        bottomNavigationBar: currentSong != null
+            ? Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF181528).withOpacity(0.95),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    )
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                        trackHeight: 3,
+                        activeTrackColor: Colors.cyanAccent,
+                        inactiveTrackColor: Colors.white24,
+                        thumbColor: Colors.cyanAccent,
+                      ),
+                      child: Slider(
+                        value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
+                        max: _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0,
+                        onChanged: (value) {
+                          _audioPlayer.seek(Duration(seconds: value.toInt()));
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDuration(_position), style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                          Text(_formatDuration(_duration), style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                currentSong.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              Text(
+                                currentSong.artist ?? "Bilinməyən İfaçı",
+                                maxLines: 1,
+                                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.skip_previous, color: Colors.white, size: 30),
+                          onPressed: _playPrevious,
+                        ),
+                        IconButton(
+                          icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill, color: Colors.cyanAccent, size: 40),
+                          onPressed: _togglePlayPause,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.skip_next, color: Colors.white, size: 30),
+                          onPressed: _playNext,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            : null,
+      ),
     );
   }
 }
