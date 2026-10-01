@@ -1,0 +1,9 @@
+version: 1.0.0
+project_type: app
+
+# Source distribution metadata
+migration:
+  platforms:
+    - platform: android
+      create_revision: 3.19.0
+      base_revision: 3.19.0
