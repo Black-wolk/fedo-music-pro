@@ -1,5 +1,5 @@
-name: fedo_music_pro
-description: Fedo Musiqi Pro - səslə idarə olunan musiqi pleyeri
+name: fedo_musiqi_pro
+description: "Fedo Auto Music & Video Player"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,13 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.0
-  just_audio: ^0.9.36
+  cupertino_icons: ^1.0.6
   speech_to_text: ^6.6.0
+  youtube_player_flutter: ^8.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
