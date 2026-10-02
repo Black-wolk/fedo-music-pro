@@ -3,6 +3,7 @@ name: qurmaq
 on:
   push:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -46,3 +47,37 @@ jobs:
                     android:exported="true"
                     android:launchMode="singleTop"
                     android:theme="@style/LaunchTheme"
+                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                    android:hardwareAccelerated="true"
+                    android:windowSoftInputMode="adjustResize">
+                    <meta-data
+                      android:name="io.flutter.embedding.android.NormalTheme"
+                      android:value="@style/NormalTheme"
+                      />
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+                <meta-data
+                    android:name="flutterEmbedding"
+                    android:value="2" />
+            </application>
+        </manifest>
+        EOF
+
+    - name: Paketləri Yükləyin
+      run: flutter pub get
+
+    - name: APK Yığın
+      run: flutter build apk --release
+
+    - name: APK fayllarını göstər
+      run: find . -name "*.apk" -not -path "./.git/*"
+
+    - name: Hazır APK-nı Yükləyin
+      uses: actions/upload-artifact@v4
+      with:
+        name: Fedo-Music-Pro-v1.0.0
+        path: build/app/outputs/**/*.apk
+        if-no-files-found: error
