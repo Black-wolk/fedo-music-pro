@@ -11,23 +11,27 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Java-nı qurun
+    - name: Java 17 qurun
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Flutter-i qurun
+    - name: Stabil Flutter qurun
       uses: subosito/flutter-action@v2
       with:
+        flutter-version: '3.16.9'
         channel: 'stable'
 
-    - name: Tam Android Strukturunu və İcazələri Yarat
+    - name: Android Strukturunu və Gradle Versiyasını Hazırla
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.fedo.music --project-name fedo_musiqi_pro
         
-        # AndroidManifest yapılandırması
+        # Gradle plugin versiyasını stabil 7.4.2 edin
+        sed -i 's/com.android.application" version ".*"/com.android.application" version "7.4.2"/' android/settings.gradle || true
+        
+        # Manifest faylını və lazımi musiqi/media icazələrini yazırıq
         cat << 'EOF' > android/app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
@@ -65,10 +69,6 @@ jobs:
             </application>
         </manifest>
         EOF
-
-        # Gradle ayarları
-        echo "android.useAndroidX=true" >> android/gradle.properties
-        echo "android.enableJetifier=true" >> android/gradle.properties
 
     - name: Paketləri Yükləyin
       run: flutter pub get
