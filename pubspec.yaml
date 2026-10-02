@@ -1,6 +1,7 @@
 name: fedo_music_pro
-description: "Fedo Music Pro - Offline Music Player"
+description: "Fedo Music Pro Player Application"
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -9,6 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
+  just_audio: ^0.9.36
+  speech_to_text: ^6.6.0
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:
