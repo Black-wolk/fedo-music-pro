@@ -88,8 +88,9 @@ class _HomePageState extends State<HomePage> {
   int _index = 0;
 
   static const _fillers = {
-    'mahnı', 'mahni', 'mahmu', 'mahnu', 'qoş', 'qos', 'boş', 'bos',
-    'oxu', 'çal', 'cal', 'tap', 'axtar', 'aç', 'ac', 'zəhmət', 'olmasa',
+    'mahnı', 'mahni', 'mahmu', 'mahnu', 'qoş', 'qos', 'koş', 'kos',
+    'goş', 'gos', 'boş', 'bos', 'oxu', 'çal', 'cal', 'tap', 'axtar',
+    'aç', 'ac', 'zəhmət', 'olmasa',
   };
 
   @override
@@ -169,7 +170,7 @@ class _HomePageState extends State<HomePage> {
 
   bool _isWake(String w) {
     return w.contains('fedo') ||
-        RegExp(r'^[fpvh][eiaö][dt][oöu]$').hasMatch(w);
+        RegExp(r'^[fpvhb][eiaöə][dt][oöu]$').hasMatch(w);
   }
 
   Future<void> _handle(String text) async {
@@ -178,12 +179,13 @@ class _HomePageState extends State<HomePage> {
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .toList();
-    if (words.isEmpty || !_isWake(words.first)) {
+    final wakeAt = words.take(2).toList().indexWhere(_isWake);
+    if (words.isEmpty || wakeAt == -1) {
       return; // "Fedo" deyilməyibsə, səssizcə ötür
     }
     _busy = true;
     try {
-      final rest = words.skip(1).toList();
+      final rest = words.skip(wakeAt + 1).toList();
       final joined = rest.join(' ');
 
       if (joined.contains('dayan') ||
@@ -266,7 +268,9 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(_auto ? 'Daimi dinləmə AÇIQDIR' : 'Daimi dinləməni açmaq üçün basın'),
+              Text(_auto
+                  ? 'Daimi dinləmə AÇIQDIR'
+                  : 'Daimi dinləməni açmaq üçün basın'),
             ],
           ),
         ),
