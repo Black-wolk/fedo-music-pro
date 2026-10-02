@@ -36,6 +36,7 @@ jobs:
             <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
             <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
             <uses-permission android:name="android.permission.WAKE_LOCK"/>
+            <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
             <application
                 android:label="Fedo Musiqi Pro"
@@ -68,6 +69,10 @@ jobs:
 
     - name: Paketləri Yükləyin
       run: flutter pub get
+
+    - name: jcenter düzəlt
+      run: |
+        find $HOME/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} +
 
     - name: APK Yığın
       run: flutter build apk --release
