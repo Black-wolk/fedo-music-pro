@@ -1,26 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const FedoMusicApp());
+  runApp(const FedoMusicProApp());
 }
 
-class FedoMusicApp extends StatelessWidget {
-  const FedoMusicApp({Key? key}) : super(key: key);
+class FedoMusicProApp extends StatelessWidget {
+  const FedoMusicProApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'Fedo Music Pro',
-      theme: ThemeData.dark(useMaterial3: true),
-      home: const MusicHomePage(),
+      theme: ThemeData.dark(),
+      home: const PlayerScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MusicHomePage extends StatelessWidget {
-  const MusicHomePage({Key? key}) : super(key: key);
+class PlayerScreen extends StatefulWidget {
+  const PlayerScreen({Key? key}) : super(key: key);
+
+  @override
+  State<PlayerScreen> createState() => _PlayerScreenState();
+}
+
+class _PlayerScreenState extends State<PlayerScreen> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String _status = "Fedo Music Pro Hazırdır!";
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermission();
+  }
+
+  void _requestPermission() async {
+    await Permission.storage.request();
+    await Permission.microphone.request();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +49,37 @@ class MusicHomePage extends StatelessWidget {
         title: const Text('Fedo Music Pro'),
         centerTitle: true,
       ),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.music_note_rounded, size: 80, color: Colors.blueAccent),
-            SizedBox(height: 20),
             Text(
-              'Fedo Music Pro İşləyir!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              _status,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _status = "Mahnı səsləndirilir...";
+                });
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("Oxut"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                _audioPlayer.pause();
+                setState(() {
+                  _status = "Mahnı dayandırıldı.";
+                });
+              },
+              icon: const Icon(Icons.pause),
+              label: const Text("Saxla"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
         ),
