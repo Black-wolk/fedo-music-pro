@@ -1,121 +1,132 @@
-name: qurmaq
+import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-on:
-  push:
-    branches: [ main, master ]
+void main() => runApp(const FedoApp());
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+class FedoApp extends StatelessWidget {
+  const FedoApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Fedo Musiqi Pro',
+      theme: ThemeData.dark(useMaterial3: true),
+      home: const HomePage(),
+    );
+  }
+}
 
-    steps:
-    - uses: actions/checkout@v4
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
 
-    - name: Java-nı qurun
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+class _HomePageState extends State<HomePage> {
+  final SpeechToText _stt = SpeechToText();
+  bool _ready = false;
+  bool _listening = false;
+  String _heard = '';
+  String _status = 'Mikrofona basın və "Fedo, mahnı adı" deyin';
+  String? _localeId;
 
-    - name: Flutter-i qurun
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.19.0'
-        channel: 'stable'
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
 
-    - name: Android Platformasını Sıfırdan Sazlayın
-      run: |
-        rm -rf android
-        flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
-        
-        # Manifestə İnternet və Yaddaş icazələrini əlavə edirik
-        cat << 'EOF' > android/app/src/main/AndroidManifest.xml
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-            
-            <application
-                android:label="Fedo Music Pro"
-                android:name="${applicationName}"
-                android:icon="@mipmap/ic_launcher"
-                android:usesCleartextTraffic="true">
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true"
-                    android:launchMode="singleTop"
-                    android:theme="@style/LaunchTheme"
-                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                    android:hardwareAccelerated="true"
-                    android:windowSoftInputMode="adjustResize">
-                    <meta-data
-                      android:name="io.flutter.embedding.android.NormalTheme"
-                      android:value="@style/NormalTheme"
-                      />
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN"/>
-                        <category android:name="android.intent.category.LAUNCHER"/>
-                    </intent-filter>
-                </activity>
-                <meta-data
-                    android:name="flutterEmbedding"
-                    android:value="2" />
-            </application>
-        </manifest>
-        EOF
-
-        # app/build.gradle faylına Gradle konfiqurasiyası
-        cat << 'EOF' > android/app/build.gradle
-        plugins {
-            id "com.android.application"
-            id "kotlin-android"
-            id "dev.flutter.flutter-gradle-plugin"
+  Future<void> _init() async {
+    _ready = await _stt.initialize();
+    if (_ready) {
+      final locales = await _stt.locales();
+      for (final l in locales) {
+        if (l.localeId.toLowerCase().startsWith('az')) {
+          _localeId = l.localeId;
+          break;
         }
+      }
+    } else {
+      _status = 'Mikrofon icazəsi verilmədi';
+    }
+    if (mounted) setState(() {});
+  }
 
-        android {
-            namespace "com.fedo.music.fedo_music_pro"
-            compileSdk 34
-
-            defaultConfig {
-                applicationId "com.fedo.music.fedo_music_pro"
-                minSdk 21
-                targetSdk 34
-                versionCode 1
-                versionName "1.0.0"
-            }
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-
-            buildTypes {
-                release {
-                    signingConfig signingConfigs.debug
-                    minifyEnabled false
-                    shrinkResources false
-                }
-            }
+  Future<void> _toggle() async {
+    if (!_ready) return;
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    setState(() {
+      _listening = true;
+      _heard = '';
+      _status = 'Dinləyirəm...';
+    });
+    await _stt.listen(
+      localeId: _localeId,
+      onResult: (r) {
+        setState(() => _heard = r.recognizedWords);
+        if (r.finalResult) {
+          setState(() => _listening = false);
+          _handle(r.recognizedWords);
         }
+      },
+    );
+  }
 
-        flutter {
-            source '../..'
-        }
-        EOF
+  Future<void> _handle(String text) async {
+    final t = text.toLowerCase();
+    if (!t.contains('fedo')) {
+      setState(() => _status = 'Əvvəl "Fedo" deyin');
+      return;
+    }
+    final cmd = t.replaceAll('fedo', '').trim();
+    if (cmd.contains('dayan')) {
+      setState(() => _status = 'Dayandırıldı');
+    } else if (cmd.contains('dəyiş') || cmd.contains('deyis')) {
+      setState(() => _status = 'Növbəti mahnı (tezliklə)');
+    } else if (cmd.isNotEmpty) {
+      setState(() => _status = 'Axtarılır: $cmd');
+      final uri = Uri.https(
+          'www.youtube.com', '/results', {'search_query': cmd});
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      setState(() => _status = 'Mahnı adını da deyin');
+    }
+  }
 
-    - name: Paketləri Yükləyin
-      run: flutter pub get
-
-    - name: Release APK Yığın
-      run: flutter build apk --release --no-tree-shake-icons
-
-    - name: Hazır APK-nı Yükləyin
-      uses: actions/upload-artifact@v4
-      with:
-        name: Fedo-Music-Pro-v1.0.0
-        path: build/app/outputs/flutter-apk/app-release.apk
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Fedo Musiqi Pro')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_status,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
+              Text(_heard,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 22)),
+              const SizedBox(height: 40),
+              GestureDetector(
+                onTap: _toggle,
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: _listening ? Colors.red : Colors.deepPurple,
+                  child: Icon(_listening ? Icons.stop : Icons.mic, size: 50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
