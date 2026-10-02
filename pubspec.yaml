@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   just_audio: ^0.9.34
-  permission_handler: ^11.0.1
 
 dev_dependencies:
   flutter_test:
