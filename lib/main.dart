@@ -1,149 +1,121 @@
-import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
+name: qurmaq
 
-void main() {
-  runApp(const FedoMusicApp());
-}
+on:
+  push:
+    branches: [ main, master ]
 
-class FedoMusicApp extends StatelessWidget {
-  const FedoMusicApp({super.key});
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Fedo Music Pro',
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        primaryColor: Colors.green,
-      ),
-      home: const MusicPlayerScreen(),
-    );
-  }
-}
+    steps:
+    - uses: actions/checkout@v4
 
-class MusicPlayerScreen extends StatefulWidget {
-  const MusicPlayerScreen({super.key});
+    - name: Java-nı qurun
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
 
-  @override
-  State<MusicPlayerScreen> createState() => _MusicPlayerScreenState();
-}
+    - name: Flutter-i qurun
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0'
+        channel: 'stable'
 
-class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
-  late AudioPlayer _audioPlayer;
-  bool isPlaying = false;
-  String currentStatus = "Mahnı seçilməyib";
+    - name: Android Platformasını Sıfırdan Sazlayın
+      run: |
+        rm -rf android
+        flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
+        
+        # Manifestə İnternet və Yaddaş icazələrini əlavə edirik
+        cat << 'EOF' > android/app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+            
+            <application
+                android:label="Fedo Music Pro"
+                android:name="${applicationName}"
+                android:icon="@mipmap/ic_launcher"
+                android:usesCleartextTraffic="true">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:launchMode="singleTop"
+                    android:theme="@style/LaunchTheme"
+                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                    android:hardwareAccelerated="true"
+                    android:windowSoftInputMode="adjustResize">
+                    <meta-data
+                      android:name="io.flutter.embedding.android.NormalTheme"
+                      android:value="@style/NormalTheme"
+                      />
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+                <meta-data
+                    android:name="flutterEmbedding"
+                    android:value="2" />
+            </application>
+        </manifest>
+        EOF
 
-  // Test üçün nümunə audio URL-i
-  final String sampleUrl =
-      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-
-  @override
-  void initState() {
-    super.initState();
-    _audioPlayer = AudioPlayer();
-
-    // Player vəziyyətini izləyirik
-    _audioPlayer.playerStateStream.listen((state) {
-      setState(() {
-        isPlaying = state.playing;
-        if (state.playing) {
-          currentStatus = "Mahnı səsləndirilir...";
-        } else if (state.processingState == ProcessingState.completed) {
-          currentStatus = "Mahnı bitdi";
-        } else {
-          currentStatus = "Mahnı dayandırıldı";
+        # app/build.gradle faylına Gradle konfiqurasiyası
+        cat << 'EOF' > android/app/build.gradle
+        plugins {
+            id "com.android.application"
+            id "kotlin-android"
+            id "dev.flutter.flutter-gradle-plugin"
         }
-      });
-    });
-  }
 
-  Future<void> _playAudio() async {
-    try {
-      if (_audioPlayer.playerState.processingState == ProcessingState.idle) {
-        await _audioPlayer.setUrl(sampleUrl);
-      }
-      await _audioPlayer.play();
-    } catch (e) {
-      setState(() {
-        currentStatus = "Xəta baş verdi: Mahnı tapılmadı";
-      });
-    }
-  }
+        android {
+            namespace "com.fedo.music.fedo_music_pro"
+            compileSdk 34
 
-  Future<void> _pauseAudio() async {
-    await _audioPlayer.pause();
-  }
+            defaultConfig {
+                applicationId "com.fedo.music.fedo_music_pro"
+                minSdk 21
+                targetSdk 34
+                versionCode 1
+                versionName "1.0.0"
+            }
 
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fedo Music Pro'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.music_note_rounded,
-                size: 100,
-                color: Colors.greenAccent,
-              ),
-              const SizedBox(height: 30),
-              Text(
-                currentStatus,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: isPlaying ? null : _playAudio,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text("Oxut"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  ElevatedButton.icon(
-                    onPressed: isPlaying ? _pauseAudio : null,
-                    icon: const Icon(Icons.pause),
-                    label: const Text("Saxla"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+
+            buildTypes {
+                release {
+                    signingConfig signingConfigs.debug
+                    minifyEnabled false
+                    shrinkResources false
+                }
+            }
+        }
+
+        flutter {
+            source '../..'
+        }
+        EOF
+
+    - name: Paketləri Yükləyin
+      run: flutter pub get
+
+    - name: Release APK Yığın
+      run: flutter build apk --release --no-tree-shake-icons
+
+    - name: Hazır APK-nı Yükləyin
+      uses: actions/upload-artifact@v4
+      with:
+        name: Fedo-Music-Pro-v1.0.0
+        path: build/app/outputs/flutter-apk/app-release.apk
