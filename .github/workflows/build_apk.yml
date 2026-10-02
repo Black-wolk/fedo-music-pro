@@ -1,88 +1,21 @@
-name: qurmaq
+name: fedo_musicpro
+description: Fedo Musiqi Pro - səslə idarə olunan musiqi pleyeri
+publish_to: 'none'
+version: 1.0.0+1
 
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+environment:
+  sdk: '>=3.0.0 <4.0.0'
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  just_audio: ^0.9.36
+  speech_to_text: ^7.0.0
 
-    steps:
-    - uses: actions/checkout@v4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
-    - name: Java-nı qurun
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Flutter-i qurun
-      uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
-
-    - name: Android Fayllarını Sıfırdan Yarat
-      run: |
-        rm -rf android
-        flutter create . --platforms=android --org com.fedo.music --project-name fedo_musiqi_pro
-
-        cat << 'EOF' > android/app/src/main/AndroidManifest.xml
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-            <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-            <uses-permission android:name="android.permission.WAKE_LOCK"/>
-            <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-
-            <application
-                android:label="Fedo Musiqi Pro"
-                android:name="${applicationName}"
-                android:icon="@mipmap/ic_launcher"
-                android:usesCleartextTraffic="true">
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true"
-                    android:launchMode="singleTop"
-                    android:theme="@style/LaunchTheme"
-                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                    android:hardwareAccelerated="true"
-                    android:windowSoftInputMode="adjustResize">
-                    <meta-data
-                      android:name="io.flutter.embedding.android.NormalTheme"
-                      android:value="@style/NormalTheme"
-                      />
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN"/>
-                        <category android:name="android.intent.category.LAUNCHER"/>
-                    </intent-filter>
-                </activity>
-                <meta-data
-                    android:name="flutterEmbedding"
-                    android:value="2" />
-            </application>
-        </manifest>
-        EOF
-
-    - name: Paketləri Yükləyin
-      run: flutter pub get
-
-    - name: jcenter düzəlt
-      run: |
-        find $HOME/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} +
-
-    - name: APK Yığın
-      run: flutter build apk --release
-
-    - name: APK fayllarını göstər
-      run: find . -name "*.apk" -not -path "./.git/*"
-
-    - name: Hazır APK-nı Yükləyin
-      uses: actions/upload-artifact@v4
-      with:
-        name: Fedo-Music-Pro-v1.0.0
-        path: build/app/outputs/**/*.apk
-        if-no-files-found: error
+flutter:
+  uses-material-design: true
