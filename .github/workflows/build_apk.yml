@@ -11,28 +11,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Java
-      uses: actions/setup-java@v3
+    - name: Java-nı qurun
+      uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Set up Flutter
+    - name: Flutter-i qurun
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.19.0'
         channel: 'stable'
 
-    - name: Create Android Structure
-      run: flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
+    - name: Android Strukturunu Yenidən Yaradın
+      run: |
+        rm -rf android
+        flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
 
-    - name: Get Dependencies
+    - name: Asılılıqları Alın
       run: flutter pub get
 
-    - name: Build APK with Verbose Logs
-      run: flutter build apk --release --verbose
+    - name: APK Yaradın
+      run: flutter build apk --release
 
-    - name: Upload APK
+    - name: APK Yükləyin
       uses: actions/upload-artifact@v4
       with:
         name: app-release
