@@ -23,6 +23,9 @@ jobs:
         flutter-version: '3.19.0'
         channel: 'stable'
 
+    - name: Generate Android Folder
+      run: flutter create . --org com.fedo.music --project-name fedo_music_pro --platforms=android
+
     - name: Get Dependencies
       run: flutter pub get
 
