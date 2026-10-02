@@ -10,10 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   just_audio: ^0.9.34
-  on_audio_query: ^2.8.3
   permission_handler: ^11.0.1
-  speech_to_text: ^6.3.0
-
 
 dev_dependencies:
   flutter_test:
