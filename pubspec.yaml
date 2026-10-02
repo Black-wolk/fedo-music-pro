@@ -9,6 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  just_audio: ^0.9.36
+  on_audio_query: ^2.9.0
+  permission_handler: ^11.3.0
+  speech_to_text: ^6.6.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -16,4 +21,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
