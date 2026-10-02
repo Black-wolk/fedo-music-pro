@@ -11,27 +11,23 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Java 17 qurun
+    - name: Java-nı qurun
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Stabil Flutter qurun
+    - name: Flutter-i qurun
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.16.9'
         channel: 'stable'
 
-    - name: Android Strukturunu və Gradle Versiyasını Hazırla
+    - name: Android Fayllarını Sıfırdan Yarat
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.fedo.music --project-name fedo_musiqi_pro
         
-        # Gradle plugin versiyasını stabil 7.4.2 edin
-        sed -i 's/com.android.application" version ".*"/com.android.application" version "7.4.2"/' android/settings.gradle || true
-        
-        # Manifest faylını və lazımi musiqi/media icazələrini yazırıq
+        # Manifest faylını və lazımi musiqi icazələrini yazırıq
         cat << 'EOF' > android/app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
@@ -70,14 +66,20 @@ jobs:
         </manifest>
         EOF
 
+        # Gradle xətalarının qarşısını almaq üçün konfiqurasiya
+        echo "android.useAndroidX=true" >> android/gradle.properties
+        echo "android.enableJetifier=true" >> android/gradle.properties
+        echo "android.enableR8=false" >> android/gradle.properties
+
     - name: Paketləri Yükləyin
       run: flutter pub get
 
-    - name: Release APK Yığın
-      run: flutter build apk --release --no-tree-shake-icons
+    - name: APK Yığın
+      run: flutter build apk --release --no-shrink --no-tree-shake-icons
 
     - name: Hazır APK-nı Yükləyin
       uses: actions/upload-artifact@v4
       with:
         name: Fedo-Music-Pro-v1.0.0
         path: build/app/outputs/flutter-apk/app-release.apk
+
