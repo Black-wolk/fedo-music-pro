@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Java-nı qurun
+    - name: Java-ni qurun
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
@@ -23,18 +23,18 @@ jobs:
         flutter-version: '3.19.0'
         channel: 'stable'
 
-    - name: Android Strukturunu Yenidən Yaradın
+    - name: Platform Yarat
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
 
-    - name: Asılılıqları Alın
+    - name: Paketleri Getir
       run: flutter pub get
 
-    - name: APK Yaradın
-      run: flutter build apk --release
+    - name: APK Yığ
+      run: flutter build apk --release --no-tree-shake-icons
 
-    - name: APK Yükləyin
+    - name: APK Yukle
       uses: actions/upload-artifact@v4
       with:
         name: app-release
