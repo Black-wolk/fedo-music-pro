@@ -28,6 +28,7 @@ jobs:
         rm -rf android
         flutter create . --platforms=android --org com.fedo.music --project-name fedo_musiqi_pro
         
+        # Manifest icazələrini yazırıq
         cat << 'EOF' > android/app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
@@ -66,20 +67,19 @@ jobs:
         </manifest>
         EOF
 
-        # SDK Versiyasını 34-ə yüksəldirik
-        sed -i 's/compileSdkVersion.*/compileSdkVersion 34/' android/app/build.gradle || true
-        sed -i 's/targetSdkVersion.*/targetSdkVersion 34/' android/app/build.gradle || true
-        sed -i 's/flutter.compileSdkVersion/34/' android/app/build.gradle || true
-        sed -i 's/flutter.targetSdkVersion/34/' android/app/build.gradle || true
+        # gradle.properties faylına AndroidX və R8 ayarlarını əlavə edirik
+        echo "android.useAndroidX=true" >> android/gradle.properties
+        echo "android.enableJetifier=true" >> android/gradle.properties
+        echo "android.enableR8=false" >> android/gradle.properties
 
     - name: Paketləri Yükləyin
       run: flutter pub get
 
-    - name: Release APK Yığın
-      run: flutter build apk --release --no-tree-shake-icons
+    - name: APK Yığın (Debug Mode)
+      run: flutter build apk --debug
 
     - name: Hazır APK-nı Yükləyin
       uses: actions/upload-artifact@v4
       with:
         name: Fedo-Music-Pro-v1.0.0
-        path: build/app/outputs/flutter-apk/app-release.apk
+        path: build/app/outputs/flutter-apk/app-debug.apk
