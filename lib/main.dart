@@ -1,102 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
-  runApp(const FedoMusicProApp());
+  runApp(const FedoMusicApp());
 }
 
-class FedoMusicProApp extends StatelessWidget {
-  const FedoMusicProApp({Key? key}) : super(key: key);
+class FedoMusicApp extends StatelessWidget {
+  const FedoMusicApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fedo Music Pro',
-      theme: ThemeData.dark(),
-      home: const VoicePlayerScreen(),
       debugShowCheckedModeBanner: false,
+      title: 'Fedo Music Pro',
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        primaryColor: Colors.green,
+      ),
+      home: const MusicPlayerScreen(),
     );
   }
 }
 
-class VoicePlayerScreen extends StatefulWidget {
-  const VoicePlayerScreen({Key? key}) : super(key: key);
+class MusicPlayerScreen extends StatefulWidget {
+  const MusicPlayerScreen({super.key});
 
   @override
-  State<VoicePlayerScreen> createState() => _VoicePlayerScreenState();
+  State<MusicPlayerScreen> createState() => _MusicPlayerScreenState();
 }
 
-class _VoicePlayerScreenState extends State<VoicePlayerScreen> {
-  late stt.SpeechToText _speech;
-  bool _isListening = false;
-  String _statusText = "Fedo Music Pro Hazırdır!";
-  String _lastCommand = "";
-  final AudioPlayer _audioPlayer = AudioPlayer();
+class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
+  late AudioPlayer _audioPlayer;
+  bool isPlaying = false;
+  String currentStatus = "Mahnı seçilməyib";
+
+  // Test üçün nümunə audio URL-i
+  final String sampleUrl =
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
 
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
-    _requestPermissions();
-    _initAudio();
-  }
+    _audioPlayer = AudioPlayer();
 
-  void _requestPermissions() async {
-    await Permission.microphone.request();
-    await Permission.storage.request();
-  }
-
-  void _initAudio() async {
-    try {
-      // Test üçün internetdəki açıq musiqi linki (sonradan telefon yaddaşına qoşulacaq)
-      await _audioPlayer.setUrl('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
-    } catch (e) {
-      setState(() => _statusText = "Musiqi yüklənmədi: $e");
-    }
-  }
-
-  void _startListening() async {
-    bool available = await _speech.initialize(
-      onStatus: (status) => setState(() => _statusText = "Status: $status"),
-      onError: (error) => setState(() => _statusText = "Xəta: ${error.errorMsg}"),
-    );
-
-    if (available) {
+    // Player vəziyyətini izləyirik
+    _audioPlayer.playerStateStream.listen((state) {
       setState(() {
-        _isListening = true;
-        _statusText = "Dinlənilir... Danış!";
+        isPlaying = state.playing;
+        if (state.playing) {
+          currentStatus = "Mahnı səsləndirilir...";
+        } else if (state.processingState == ProcessingState.completed) {
+          currentStatus = "Mahnı bitdi";
+        } else {
+          currentStatus = "Mahnı dayandırıldı";
+        }
       });
-      _speech.listen(
-        onResult: (result) {
-          setState(() {
-            _lastCommand = result.recognizedWords;
-            _processCommand(_lastCommand);
-          });
-        },
-        localeId: "az_AZ",
-      );
-    }
-  }
-
-  void _stopListening() {
-    _speech.stop();
-    setState(() {
-      _isListening = false;
-      _statusText = "Dinləmə dayandırıldı.";
     });
   }
 
-  void _processCommand(String command) {
-    String cmd = command.toLowerCase();
-    if (cmd.contains("oxut") || cmd.contains("başla") || cmd.contains("qoş")) {
-      _audioPlayer.play();
-      setState(() => _statusText = "Mahnı səsləndirilir: $cmd");
-    } else if (cmd.contains("saxla") || cmd.contains("dayandır")) {
-      _audioPlayer.pause();
-      setState(() => _statusText = "Mahnı dayandırıldı.");
+  Future<void> _playAudio() async {
+    try {
+      if (_audioPlayer.playerState.processingState == ProcessingState.idle) {
+        await _audioPlayer.setUrl(sampleUrl);
+      }
+      await _audioPlayer.play();
+    } catch (e) {
+      setState(() {
+        currentStatus = "Xəta baş verdi: Mahnı tapılmadı";
+      });
     }
+  }
+
+  Future<void> _pauseAudio() async {
+    await _audioPlayer.pause();
   }
 
   @override
@@ -109,55 +85,63 @@ class _VoicePlayerScreenState extends State<VoicePlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fedo Music Pro - Səsli Pleyer'),
+        title: const Text('Fedo Music Pro'),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _statusText,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Son eşidilən əmr: '$_lastCommand'",
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 40),
-            FloatingActionButton.large(
-              onPressed: _isListening ? _stopListening : _startListening,
-              backgroundColor: _isListening ? Colors.red : Colors.blue,
-              child: Icon(_isListening ? Icons.mic : Icons.mic_none, size: 40),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _isListening ? "Dinləyirəm... (Məs: 'Oxut' və ya 'Saxla de')" : "Mikrofon düyməsinə bas və danış",
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _audioPlayer.play(),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text("Çal"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.music_note_rounded,
+                size: 100,
+                color: Colors.greenAccent,
+              ),
+              const SizedBox(height: 30),
+              Text(
+                currentStatus,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 20),
-                ElevatedButton.icon(
-                  onPressed: () => _audioPlayer.pause(),
-                  icon: const Icon(Icons.pause),
-                  label: const Text("Pauza"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                ),
-              ],
-            ),
-          ],
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: isPlaying ? null : _playAudio,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text("Oxut"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  ElevatedButton.icon(
+                    onPressed: isPlaying ? _pauseAudio : null,
+                    icon: const Icon(Icons.pause),
+                    label: const Text("Saxla"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
