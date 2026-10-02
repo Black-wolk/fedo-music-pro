@@ -1,5 +1,5 @@
-name: fedo_musiqi_pro
-description: Fedo Musiqi Pro
+name: fedo_music_pro
+description: Fedo Musiqi Pro - səslə idarə olunan musiqi pleyeri
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,8 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  speech_to_text: ^7.0.0
-  url_launcher: ^6.2.0
+  http: ^1.2.0
+  just_audio: ^0.9.36
+  speech_to_text: ^6.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
