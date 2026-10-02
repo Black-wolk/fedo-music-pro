@@ -1,6 +1,59 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:just_audio/just_audio.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+const String jamendoClientId = '';
+
+class Track {
+  final String title;
+  final String artist;
+  final String url;
+  Track(this.title, this.artist, this.url);
+}
+
+Future<List<Track>> searchTracks(String q) async {
+  final out = <Track>[];
+  if (jamendoClientId.isNotEmpty) {
+    try {
+      final r = await http.get(Uri.https('api.jamendo.com', '/v3.0/tracks/', {
+        'client_id': jamendoClientId,
+        'format': 'json',
+        'limit': '10',
+        'search': q,
+        'audioformat': 'mp31',
+      }));
+      final j = jsonDecode(r.body);
+      for (final t in j['results']) {
+        final a = (t['audio'] ?? '').toString();
+        if (a.isNotEmpty) {
+          out.add(Track(t['name'].toString(), t['artist_name'].toString(), a));
+        }
+      }
+    } catch (_) {}
+  }
+  if (out.isEmpty) {
+    try {
+      final r = await http.get(Uri.https('itunes.apple.com', '/search', {
+        'term': q,
+        'media': 'music',
+        'entity': 'song',
+        'limit': '10',
+      }));
+      final j = jsonDecode(r.body);
+      for (final t in j['results']) {
+        final p = t['previewUrl'];
+        if (p != null) {
+          out.add(Track(
+              t['trackName'].toString(), t['artistName'].toString(), p));
+        }
+      }
+    } catch (_) {}
+  }
+  return out;
+}
 
 void main() => runApp(const FedoApp());
 
@@ -24,11 +77,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final SpeechToText _stt = SpeechToText();
+  final AudioPlayer _player = AudioPlayer();
   bool _ready = false;
-  bool _listening = false;
+  bool _auto = false; // daimi dinləmə rejimi
+  bool _busy = false;
   String _heard = '';
-  String _status = 'Mikrofona basın və "Fedo, mahnı adı" deyin';
+  String _status = 'Daimi dinləməni açın və "Fedo, mahnı adı" deyin';
   String? _localeId;
+  List<Track> _tracks = [];
+  int _index = 0;
+
+  static const _fillers = {
+    'mahnı', 'mahni', 'mahmu', 'mahnu', 'qoş', 'qos', 'boş', 'bos',
+    'oxu', 'çal', 'cal', 'tap', 'axtar', 'aç', 'ac', 'zəhmət', 'olmasa',
+  };
 
   @override
   void initState() {
@@ -36,64 +98,144 @@ class _HomePageState extends State<HomePage> {
     _init();
   }
 
+  @override
+  void dispose() {
+    _auto = false;
+    _stt.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
   Future<void> _init() async {
-    _ready = await _stt.initialize();
+    _ready = await _stt.initialize(
+      onStatus: (s) {
+        if (_auto && !_busy && (s == 'done' || s == 'notListening')) {
+          Future.delayed(const Duration(milliseconds: 600), _listenLoop);
+        }
+      },
+      onError: (e) {
+        if (_auto && !_busy) {
+          Future.delayed(const Duration(seconds: 1), _listenLoop);
+        }
+      },
+    );
     if (_ready) {
       final locales = await _stt.locales();
+      String? tr;
       for (final l in locales) {
-        if (l.localeId.toLowerCase().startsWith('az')) {
+        final id = l.localeId.toLowerCase();
+        if (id.startsWith('az')) {
           _localeId = l.localeId;
           break;
         }
+        if (id.startsWith('tr')) tr = l.localeId;
       }
+      _localeId ??= tr;
     } else {
       _status = 'Mikrofon icazəsi verilmədi';
     }
     if (mounted) setState(() {});
   }
 
-  Future<void> _toggle() async {
+  Future<void> _toggleAuto() async {
     if (!_ready) return;
-    if (_listening) {
-      await _stt.stop();
-      setState(() => _listening = false);
-      return;
+    if (_auto) {
+      _auto = false;
+      await _stt.cancel();
+      setState(() => _status = 'Daimi dinləmə söndürüldü');
+    } else {
+      _auto = true;
+      setState(() => _status = 'Dinləyirəm... "Fedo" deyin');
+      _listenLoop();
     }
-    setState(() {
-      _listening = true;
-      _heard = '';
-      _status = 'Dinləyirəm...';
-    });
-    await _stt.listen(
-      localeId: _localeId,
-      onResult: (r) {
-        setState(() => _heard = r.recognizedWords);
-        if (r.finalResult) {
-          setState(() => _listening = false);
-          _handle(r.recognizedWords);
-        }
-      },
-    );
+  }
+
+  Future<void> _listenLoop() async {
+    if (!_auto || _busy || !mounted || _stt.isListening) return;
+    try {
+      await _stt.listen(
+        localeId: _localeId,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        onResult: (r) {
+          setState(() => _heard = r.recognizedWords);
+          if (r.finalResult) {
+            _handle(r.recognizedWords);
+          }
+        },
+      );
+    } catch (_) {}
+  }
+
+  bool _isWake(String w) {
+    return w.contains('fedo') ||
+        RegExp(r'^[fpvh][eiaö][dt][oöu]$').hasMatch(w);
   }
 
   Future<void> _handle(String text) async {
-    final t = text.toLowerCase();
-    if (!t.contains('fedo')) {
-      setState(() => _status = 'Əvvəl "Fedo" deyin');
-      return;
+    final words = text
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty || !_isWake(words.first)) {
+      return; // "Fedo" deyilməyibsə, səssizcə ötür
     }
-    final cmd = t.replaceAll('fedo', '').trim();
-    if (cmd.contains('dayan')) {
-      setState(() => _status = 'Dayandırıldı');
-    } else if (cmd.contains('dəyiş') || cmd.contains('deyis')) {
-      setState(() => _status = 'Növbəti mahnı (tezliklə)');
-    } else if (cmd.isNotEmpty) {
-      setState(() => _status = 'Axtarılır: $cmd');
-      final uri = Uri.https(
-          'www.youtube.com', '/results', {'search_query': cmd});
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      setState(() => _status = 'Mahnı adını da deyin');
+    _busy = true;
+    try {
+      final rest = words.skip(1).toList();
+      final joined = rest.join(' ');
+
+      if (joined.contains('dayan') ||
+          joined.contains('sus') ||
+          joined.contains('stop')) {
+        await _player.pause();
+        setState(() => _status = 'Dayandırıldı');
+      } else if (joined.contains('dəyiş') ||
+          joined.contains('deyis') ||
+          joined.contains('növbəti') ||
+          joined.contains('next')) {
+        if (_tracks.length > 1) {
+          _index = (_index + 1) % _tracks.length;
+          await _playCurrent();
+        } else {
+          setState(() => _status = 'Dəyişmək üçün başqa mahnı yoxdur');
+        }
+      } else if (joined == 'davam' || joined.contains('davam et')) {
+        _player.play();
+        setState(() => _status = 'Davam edir');
+      } else {
+        final query =
+            rest.where((w) => !_fillers.contains(w)).join(' ').trim();
+        if (query.isEmpty) {
+          setState(() => _status = 'Mahnı adını da deyin');
+        } else {
+          setState(() => _status = 'Axtarılır: $query');
+          _tracks = await searchTracks(query);
+          _index = 0;
+          if (_tracks.isEmpty) {
+            setState(() => _status = 'Tapılmadı: $query');
+          } else {
+            await _playCurrent();
+          }
+        }
+      }
+    } finally {
+      _busy = false;
+      if (_auto) {
+        Future.delayed(const Duration(milliseconds: 800), _listenLoop);
+      }
+    }
+  }
+
+  Future<void> _playCurrent() async {
+    final t = _tracks[_index];
+    setState(() => _status = 'Çalır: ${t.title} - ${t.artist}');
+    try {
+      await _player.setUrl(t.url);
+      _player.play();
+    } catch (e) {
+      setState(() => _status = 'Çalmaq alınmadı');
     }
   }
 
@@ -116,13 +258,15 @@ class _HomePageState extends State<HomePage> {
                   style: const TextStyle(fontSize: 22)),
               const SizedBox(height: 40),
               GestureDetector(
-                onTap: _toggle,
+                onTap: _toggleAuto,
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundColor: _listening ? Colors.red : Colors.deepPurple,
-                  child: Icon(_listening ? Icons.stop : Icons.mic, size: 50),
+                  backgroundColor: _auto ? Colors.green : Colors.deepPurple,
+                  child: Icon(_auto ? Icons.hearing : Icons.mic, size: 50),
                 ),
               ),
+              const SizedBox(height: 12),
+              Text(_auto ? 'Daimi dinləmə AÇIQDIR' : 'Daimi dinləməni açmaq üçün basın'),
             ],
           ),
         ),
