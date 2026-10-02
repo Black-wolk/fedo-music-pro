@@ -3,20 +3,19 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 void main() {
-  runApp(const FedoAutoMusicApp());
+  runApp(const FedoAutoApp());
 }
 
-class FedoAutoMusicApp extends StatelessWidget {
-  const FedoAutoMusicApp({super.key});
+class FedoAutoApp extends StatelessWidget {
+  const FedoAutoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fedo Musiqi Auto',
+      title: 'Fedo Auto Music',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        primaryColor: Colors.redAccent,
+        scaffoldBackgroundColor: const Color(0xFF0F0F0F),
       ),
       home: const AutoHomeScreen(),
     );
@@ -33,10 +32,8 @@ class AutoHomeScreen extends StatefulWidget {
 class _AutoHomeScreenState extends State<AutoHomeScreen> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
-  String _statusText = "Səsli əmr vermək üçün mikrofon düyməsinə basın";
-  
+  String _status = "Səsli əmr vermək üçün düyməyə basın";
   YoutubePlayerController? _controller;
-  String? _currentVideoId;
 
   @override
   void initState() {
@@ -58,21 +55,21 @@ class _AutoHomeScreenState extends State<AutoHomeScreen> {
       if (available) {
         setState(() {
           _isListening = true;
-          _statusText = "Dinlənilir... Mahnı və ya video adını deyin";
+          _status = "Dinlənilir... Mahnı adını deyin";
         });
         _speech.listen(
-          localeId: "az_AZ", // Azərbaycan dilində səsli axtarış
+          localeId: "az_AZ",
           onResult: (val) {
-            setState(() {
-              if (val.recognizedWords.isNotEmpty) {
-                _statusText = "Axtarılır: \"${val.recognizedWords}\"";
-                _playMusicOrVideo(val.recognizedWords);
-              }
-            });
+            if (val.recognizedWords.isNotEmpty) {
+              setState(() {
+                _status = "Axtarılır: ${val.recognizedWords}";
+                _loadVideo("dQw4w9WgXcQ"); // Nümunə video ID
+              });
+            }
           },
         );
       } else {
-        setState(() => _statusText = "Səsli tanımaq dəstəklənmir və ya icazə verilməyib");
+        setState(() => _status = "Mikrofon icazəsi verilməyib");
       }
     } else {
       setState(() => _isListening = false);
@@ -80,25 +77,19 @@ class _AutoHomeScreenState extends State<AutoHomeScreen> {
     }
   }
 
-  void _playMusicOrVideo(String query) {
-    // Səsli əmr gəldikdə nümunə videolar və ya axtarış parametri yüklənir
-    // Avto rejim üçün idarəetmə sadələşdirilmişdir
-    setState(() {
-      _currentVideoId = YoutubePlayer.convertUrlToId("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-      
-      if (_controller == null) {
-        _controller = YoutubePlayerController(
-          initialVideoId: _currentVideoId ?? 'dQw4w9WgXcQ',
-          flags: const YoutubePlayerFlags(
-            autoPlay: true,
-            mute: false,
-            enableCaption: false,
-          ),
-        );
-      } else {
-        _controller!.load(_currentVideoId!);
-      }
-    });
+  void _loadVideo(String videoId) {
+    if (_controller == null) {
+      _controller = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: true,
+          mute: false,
+        ),
+      );
+    } else {
+      _controller!.load(videoId);
+    }
+    setState(() {});
   }
 
   @override
@@ -110,96 +101,83 @@ class _AutoHomeScreenState extends State<AutoHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fedo Auto Music & Video', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-        centerTitle: true,
-        backgroundColor: Colors.redDark,
-      ),
-      body: Column(
-        children: [
-          // Video/Musiqi Pleyer Zonası (Maşın ekranı üçün böyük ölçü)
-          Expanded(
-            flex: 3,
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.5), width: 2),
-              ),
-              child: _controller != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: YoutubePlayer(
-                        controller: _controller!,
-                        showVideoProgressIndicator: true,
-                        progressIndicatorColor: Colors.redAccent,
-                      ),
-                    )
-                  : const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.music_note, size: 80, color: Colors.redAccent),
-                          SizedBox(height: 12),
-                          Text(
-                            "Mahnı və ya Video Səsli Əmrlə Başladılacaq",
-                            style: TextStyle(color: Colors.white70, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
-
-          // Status paneli
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              _statusText,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _isListening ? Colors.greenAccent : Colors.white70,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Maşın sürərkən rahat basmaq üçün Böyük Səsli Mikrofon Düyməsi
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: GestureDetector(
-                onTap: _listen,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: _isListening ? 130 : 110,
-                  height: _isListening ? 130 : 110,
-                  decoration: BoxDecoration(
-                    color: _isListening ? Colors.red : Colors.redAccent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isListening ? Colors.red.withOpacity(0.8) : Colors.redAccent.withOpacity(0.4),
-                        blurRadius: 25,
-                        spreadRadius: _isListening ? 10 : 3,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Monitor üçün Böyük Pleyer Sahəsi
+            Expanded(
+              flex: 3,
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.redAccent, width: 2),
+                ),
+                child: _controller != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: YoutubePlayer(controller: _controller!),
                       )
-                    ],
-                  ),
-                  child: Icon(
-                    _isListening ? Icons.mic : Icons.mic_none,
-                    size: 60,
-                    color: Colors.white,
+                    : const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, size: 90, color: Colors.redAccent),
+                            SizedBox(height: 10),
+                            Text(
+                              "Səsli Əmrlə Musiqi və Video Oxutma",
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+
+            // Status Bildirişi
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                _status,
+                style: TextStyle(
+                  color: _isListening ? Colors.greenAccent : Colors.white70,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+
+            // Avtomobil üçün Böyük Səs Düyməsi
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _listen,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: _isListening ? Colors.red : Colors.redAccent,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.5),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        )
+                      ],
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      size: 65,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }
