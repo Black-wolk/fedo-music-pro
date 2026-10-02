@@ -23,12 +23,12 @@ jobs:
         flutter-version: '3.19.0'
         channel: 'stable'
 
-    - name: Android Platformasını Sıfırdan Sazlayın
+    - name: Android Platformasını Sazlayın
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.fedo.music --project-name fedo_music_pro
         
-        # Manifest təyin et
+        # Internet ve Yaddas icazesini Manifest faylina elave edirik
         cat << 'EOF' > android/app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
@@ -65,89 +65,16 @@ jobs:
         </manifest>
         EOF
 
-        # Root build.gradle
-        cat << 'EOF' > android/build.gradle
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-
-        rootProject.buildDir = '../build'
-        subprojects {
-            project.buildDir = "${rootProject.buildDir}/${project.name}"
-        }
-        subprojects {
-            project.evaluationDependsOn(':app')
-        }
-
-        tasks.register("clean", Delete) {
-            delete rootProject.buildDir
-        }
-        EOF
-
-        # App build.gradle
-        cat << 'EOF' > android/app/build.gradle
-        plugins {
-            id "com.android.application"
-            id "kotlin-android"
-            id "dev.flutter.flutter-gradle-plugin"
-        }
-
-        def localProperties = new Properties()
-        def localPropertiesFile = rootProject.file('local.properties')
-        if (localPropertiesFile.exists()) {
-            localPropertiesFile.withReader('UTF-8') { reader ->
-                localProperties.load(reader)
-            }
-        }
-
-        def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-        if (flutterVersionCode == null) {
-            flutterVersionCode = '1'
-        }
-
-        def flutterVersionName = localProperties.getProperty('flutter.versionName')
-        if (flutterVersionName == null) {
-            flutterVersionName = '1.0'
-        }
-
-        android {
-            namespace "com.fedo.music.fedo_music_pro"
-            compileSdkVersion 34
-            ndkVersion flutter.ndkVersion
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-
-            defaultConfig {
-                applicationId "com.fedo.music.fedo_music_pro"
-                minSdkVersion 21
-                targetSdkVersion 34
-                versionCode flutterVersionCode.toInteger()
-                versionName flutterVersionName
-            }
-
-            buildTypes {
-                release {
-                    signingConfig signingConfigs.debug
-                    minifyEnabled false
-                    shrinkResources false
-                }
-            }
-        }
-
-        flutter {
-            source '../..'
-        }
-        EOF
+        # Flutter-in oz yaratdigi app/build.gradle daxilinde compileSdk ve targetSdk versiyasini 34 edirik
+        python3 -c "
+        path = 'android/app/build.gradle'
+        with open(path, 'r') as f:
+            content = f.read()
+        content = content.replace('flutter.compileSdkVersion', '34')
+        content = content.replace('flutter.targetSdkVersion', '34')
+        with open(path, 'w') as f:
+            f.write(content)
+        "
 
     - name: Paketləri Yükləyin
       run: flutter pub get
